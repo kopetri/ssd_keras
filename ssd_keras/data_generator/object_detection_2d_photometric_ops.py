@@ -356,7 +356,7 @@ class Gamma:
         self.table = np.array([((i / 255.0) ** self.gamma_inv) * 255 for i in np.arange(0, 256)]).astype("uint8")
 
     def __call__(self, image, labels=None):
-        image = cv2.LUT(image, table)
+        image = cv2.LUT(image, self.table)
         if labels is None:
             return image
         else:

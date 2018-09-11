@@ -50,14 +50,15 @@ def check_args(parsed_args):
 
 
 def main():
+
     parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
     parser.add_argument('--img_width', default=300, type=int)
     parser.add_argument('--img_height', default=300, type=int)
     parser.add_argument('--batch_size', default=4, type=int)
-    parser.add_argument('--weights_path', type=str)
-    parser.add_argument('--train_data', type=str)
-    parser.add_argument('--val_data', type=str)
-    parser.add_argument('--output_dir', type=str)
+    parser.add_argument('--weights_path', type=str, default="D:/Documents/ssd_keras/VGG_COCO_SSD_300x300_iter_400000_subsampled_6_classes.h5")
+    parser.add_argument('--train_data', type=str, default="D:/Documents/3dsMax/renderoutput/data.all.h5")
+    parser.add_argument('--val_data', type=str, default="D:/Documents/Villeroy & Boch - Subway 2.0/data.h5")
+    parser.add_argument('--output_dir', type=str, default="D:/Downloads")
 
     args = sys.argv[1:]
     parsed_args = parser.parse_args(args)
@@ -127,10 +128,11 @@ def main():
     model.compile(optimizer=adam, loss=ssd_loss.compute_loss)
 
     train_dataset = DataGenerator(load_images_into_memory=False,
-                                  hdf5_dataset_path=parsed_args.train_data)
+                                  hdf5_dataset_path="D:/Documents/Villeroy & Boch - Subway 2.0/data.h5")
+    """
     val_dataset = DataGenerator(load_images_into_memory=False,
                                 hdf5_dataset_path=parsed_args.val_data)
-    """
+    
     train_dataset.parse_csv(images_dir="D:/Documents/3dsMax/renderoutput/3dsmax3",
                             labels_filename="D:/Documents/3dsMax/renderoutput/3dsmax3/annotations.ssd.csv",
                             input_format=["image_name", "xmin", "ymin", "xmax", "ymax", "class_id"], include_classes="all")
@@ -188,7 +190,11 @@ def main():
                                              returns={'processed_images',
                                                       'encoded_labels'},
                                              keep_images_without_gt=False)
+    images, annotations = train_generator.__next__()
+    print(np.array(images).shape)
+    print(np.array(annotations).shape)
 
+    """
     val_generator = val_dataset.generate(batch_size=batch_size,
                                          shuffle=False,
                                          transformations=[convert_to_3_channels,
@@ -260,7 +266,7 @@ def main():
                                   validation_data=val_generator,
                                   validation_steps=ceil(val_dataset_size / batch_size),
                                   initial_epoch=initial_epoch)
-
+    """
 
 if __name__ == '__main__':
     main()

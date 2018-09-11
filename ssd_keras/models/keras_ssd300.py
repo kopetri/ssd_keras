@@ -1,5 +1,5 @@
 '''
-A Keras port of the original Caffe SSD512 network.
+A Keras port of the original Caffe SSD300 network.
 
 Copyright (C) 2018 Pierluigi Ferrari
 
@@ -23,12 +23,12 @@ from keras.layers import Input, Lambda, Activation, Conv2D, MaxPooling2D, ZeroPa
 from keras.regularizers import l2
 import keras.backend as K
 
-from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from keras_layers.keras_layer_L2Normalization import L2Normalization
-from keras_layers.keras_layer_DecodeDetections import DecodeDetections
-from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
+from ..keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
+from ..keras_layers.keras_layer_L2Normalization import L2Normalization
+from ..keras_layers.keras_layer_DecodeDetections import DecodeDetections
+from ..keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
 
-def ssd_512(image_size,
+def ssd_300(image_size,
             n_classes,
             mode='training',
             l2_regularization=0.0005,
@@ -40,11 +40,10 @@ def ssd_512(image_size,
                                      [1.0, 2.0, 0.5, 3.0, 1.0/3.0],
                                      [1.0, 2.0, 0.5, 3.0, 1.0/3.0],
                                      [1.0, 2.0, 0.5, 3.0, 1.0/3.0],
-                                     [1.0, 2.0, 0.5, 3.0, 1.0/3.0],
                                      [1.0, 2.0, 0.5],
                                      [1.0, 2.0, 0.5]],
             two_boxes_for_ar1=True,
-            steps=[8, 16, 32, 64, 128, 256, 512],
+            steps=[8, 16, 32, 64, 100, 300],
             offsets=None,
             clip_boxes=False,
             variances=[0.1, 0.1, 0.2, 0.2],
@@ -59,7 +58,7 @@ def ssd_512(image_size,
             nms_max_output_size=400,
             return_predictor_sizes=False):
     '''
-    Build a Keras model with SSD512 architecture, see references.
+    Build a Keras model with SSD300 architecture, see references.
 
     The base network is a reduced atrous VGG-16, extended by the SSD architecture,
     as described in the paper.
@@ -99,14 +98,13 @@ def ssd_512(image_size,
             This list must be one element longer than the number of predictor layers. The first `k` elements are the
             scaling factors for the `k` predictor layers, while the last element is used for the second box
             for aspect ratio 1 in the last predictor layer if `two_boxes_for_ar1` is `True`. This additional
-            last scaling factor must be passed either way, even if it is not being used.
-            If a list is passed, this argument overrides `min_scale` and `max_scale`. All scaling factors
-            must be greater than zero.
+            last scaling factor must be passed either way, even if it is not being used. If a list is passed,
+            this argument overrides `min_scale` and `max_scale`. All scaling factors must be greater than zero.
         aspect_ratios_global (list, optional): The list of aspect ratios for which anchor boxes are to be
             generated. This list is valid for all prediction layers.
         aspect_ratios_per_layer (list, optional): A list containing one aspect ratio list for each prediction layer.
             This allows you to set the aspect ratios for each predictor layer individually, which is the case for the
-            original SSD512 implementation. If a list is passed, it overrides `aspect_ratios_global`.
+            original SSD300 implementation. If a list is passed, it overrides `aspect_ratios_global`.
         two_boxes_for_ar1 (bool, optional): Only relevant for aspect ratio lists that contain 1. Will be ignored otherwise.
             If `True`, two anchor boxes will be generated for aspect ratio 1. The first will be generated
             using the scaling factor for the respective layer, the second one will be generated using
@@ -161,7 +159,7 @@ def ssd_512(image_size,
             spatial dimensions of the predictor layers), for inference you don't need them.
 
     Returns:
-        model: The Keras SSD512 model.
+        model: The Keras SSD300 model.
         predictor_sizes (optional): A Numpy array containing the `(height, width)` portion
             of the output tensor shape for each convolutional predictor layer. During
             training, the generator function needs this in order to transform
@@ -173,7 +171,7 @@ def ssd_512(image_size,
         https://arxiv.org/abs/1512.02325v5
     '''
 
-    n_predictor_layers = 7 # The number of predictor conv layers in the network is 7 for the original SSD512
+    n_predictor_layers = 6 # The number of predictor conv layers in the network is 6 for the original SSD300.
     n_classes += 1 # Account for the background class.
     l2_reg = l2_regularization # Make the internal name shorter.
     img_height, img_width, img_channels = image_size[0], image_size[1], image_size[2]
@@ -309,16 +307,10 @@ def ssd_512(image_size,
     conv7_2 = Conv2D(256, (3, 3), strides=(2, 2), activation='relu', padding='valid', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv7_2')(conv7_1)
 
     conv8_1 = Conv2D(128, (1, 1), activation='relu', padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv8_1')(conv7_2)
-    conv8_1 = ZeroPadding2D(padding=((1, 1), (1, 1)), name='conv8_padding')(conv8_1)
-    conv8_2 = Conv2D(256, (3, 3), strides=(2, 2), activation='relu', padding='valid', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv8_2')(conv8_1)
+    conv8_2 = Conv2D(256, (3, 3), strides=(1, 1), activation='relu', padding='valid', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv8_2')(conv8_1)
 
     conv9_1 = Conv2D(128, (1, 1), activation='relu', padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv9_1')(conv8_2)
-    conv9_1 = ZeroPadding2D(padding=((1, 1), (1, 1)), name='conv9_padding')(conv9_1)
-    conv9_2 = Conv2D(256, (3, 3), strides=(2, 2), activation='relu', padding='valid', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv9_2')(conv9_1)
-
-    conv10_1 = Conv2D(128, (1, 1), activation='relu', padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv10_1')(conv9_2)
-    conv10_1 = ZeroPadding2D(padding=((1, 1), (1, 1)), name='conv10_padding')(conv10_1)
-    conv10_2 = Conv2D(256, (4, 4), strides=(1, 1), activation='relu', padding='valid', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv10_2')(conv10_1)
+    conv9_2 = Conv2D(256, (3, 3), strides=(1, 1), activation='relu', padding='valid', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv9_2')(conv9_1)
 
     # Feed conv4_3 into the L2 normalization layer
     conv4_3_norm = L2Normalization(gamma_init=20, name='conv4_3_norm')(conv4_3)
@@ -333,7 +325,6 @@ def ssd_512(image_size,
     conv7_2_mbox_conf = Conv2D(n_boxes[3] * n_classes, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv7_2_mbox_conf')(conv7_2)
     conv8_2_mbox_conf = Conv2D(n_boxes[4] * n_classes, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv8_2_mbox_conf')(conv8_2)
     conv9_2_mbox_conf = Conv2D(n_boxes[5] * n_classes, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv9_2_mbox_conf')(conv9_2)
-    conv10_2_mbox_conf = Conv2D(n_boxes[6] * n_classes, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv10_2_mbox_conf')(conv10_2)
     # We predict 4 box coordinates for each box, hence the localization predictors have depth `n_boxes * 4`
     # Output shape of the localization layers: `(batch, height, width, n_boxes * 4)`
     conv4_3_norm_mbox_loc = Conv2D(n_boxes[0] * 4, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv4_3_norm_mbox_loc')(conv4_3_norm)
@@ -342,7 +333,6 @@ def ssd_512(image_size,
     conv7_2_mbox_loc = Conv2D(n_boxes[3] * 4, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv7_2_mbox_loc')(conv7_2)
     conv8_2_mbox_loc = Conv2D(n_boxes[4] * 4, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv8_2_mbox_loc')(conv8_2)
     conv9_2_mbox_loc = Conv2D(n_boxes[5] * 4, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv9_2_mbox_loc')(conv9_2)
-    conv10_2_mbox_loc = Conv2D(n_boxes[6] * 4, (3, 3), padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(l2_reg), name='conv10_2_mbox_loc')(conv10_2)
 
     ### Generate the anchor boxes (called "priors" in the original Caffe/C++ implementation, so I'll keep their layer names)
 
@@ -365,9 +355,6 @@ def ssd_512(image_size,
     conv9_2_mbox_priorbox = AnchorBoxes(img_height, img_width, this_scale=scales[5], next_scale=scales[6], aspect_ratios=aspect_ratios[5],
                                         two_boxes_for_ar1=two_boxes_for_ar1, this_steps=steps[5], this_offsets=offsets[5], clip_boxes=clip_boxes,
                                         variances=variances, coords=coords, normalize_coords=normalize_coords, name='conv9_2_mbox_priorbox')(conv9_2_mbox_loc)
-    conv10_2_mbox_priorbox = AnchorBoxes(img_height, img_width, this_scale=scales[6], next_scale=scales[7], aspect_ratios=aspect_ratios[6],
-                                        two_boxes_for_ar1=two_boxes_for_ar1, this_steps=steps[6], this_offsets=offsets[6], clip_boxes=clip_boxes,
-                                        variances=variances, coords=coords, normalize_coords=normalize_coords, name='conv10_2_mbox_priorbox')(conv10_2_mbox_loc)
 
     ### Reshape
 
@@ -379,7 +366,6 @@ def ssd_512(image_size,
     conv7_2_mbox_conf_reshape = Reshape((-1, n_classes), name='conv7_2_mbox_conf_reshape')(conv7_2_mbox_conf)
     conv8_2_mbox_conf_reshape = Reshape((-1, n_classes), name='conv8_2_mbox_conf_reshape')(conv8_2_mbox_conf)
     conv9_2_mbox_conf_reshape = Reshape((-1, n_classes), name='conv9_2_mbox_conf_reshape')(conv9_2_mbox_conf)
-    conv10_2_mbox_conf_reshape = Reshape((-1, n_classes), name='conv10_2_mbox_conf_reshape')(conv10_2_mbox_conf)
     # Reshape the box predictions, yielding 3D tensors of shape `(batch, height * width * n_boxes, 4)`
     # We want the four box coordinates isolated in the last axis to compute the smooth L1 loss
     conv4_3_norm_mbox_loc_reshape = Reshape((-1, 4), name='conv4_3_norm_mbox_loc_reshape')(conv4_3_norm_mbox_loc)
@@ -388,7 +374,6 @@ def ssd_512(image_size,
     conv7_2_mbox_loc_reshape = Reshape((-1, 4), name='conv7_2_mbox_loc_reshape')(conv7_2_mbox_loc)
     conv8_2_mbox_loc_reshape = Reshape((-1, 4), name='conv8_2_mbox_loc_reshape')(conv8_2_mbox_loc)
     conv9_2_mbox_loc_reshape = Reshape((-1, 4), name='conv9_2_mbox_loc_reshape')(conv9_2_mbox_loc)
-    conv10_2_mbox_loc_reshape = Reshape((-1, 4), name='conv10_2_mbox_loc_reshape')(conv10_2_mbox_loc)
     # Reshape the anchor box tensors, yielding 3D tensors of shape `(batch, height * width * n_boxes, 8)`
     conv4_3_norm_mbox_priorbox_reshape = Reshape((-1, 8), name='conv4_3_norm_mbox_priorbox_reshape')(conv4_3_norm_mbox_priorbox)
     fc7_mbox_priorbox_reshape = Reshape((-1, 8), name='fc7_mbox_priorbox_reshape')(fc7_mbox_priorbox)
@@ -396,7 +381,6 @@ def ssd_512(image_size,
     conv7_2_mbox_priorbox_reshape = Reshape((-1, 8), name='conv7_2_mbox_priorbox_reshape')(conv7_2_mbox_priorbox)
     conv8_2_mbox_priorbox_reshape = Reshape((-1, 8), name='conv8_2_mbox_priorbox_reshape')(conv8_2_mbox_priorbox)
     conv9_2_mbox_priorbox_reshape = Reshape((-1, 8), name='conv9_2_mbox_priorbox_reshape')(conv9_2_mbox_priorbox)
-    conv10_2_mbox_priorbox_reshape = Reshape((-1, 8), name='conv10_2_mbox_priorbox_reshape')(conv10_2_mbox_priorbox)
 
     ### Concatenate the predictions from the different layers
 
@@ -408,8 +392,7 @@ def ssd_512(image_size,
                                                        conv6_2_mbox_conf_reshape,
                                                        conv7_2_mbox_conf_reshape,
                                                        conv8_2_mbox_conf_reshape,
-                                                       conv9_2_mbox_conf_reshape,
-                                                       conv10_2_mbox_conf_reshape])
+                                                       conv9_2_mbox_conf_reshape])
 
     # Output shape of `mbox_loc`: (batch, n_boxes_total, 4)
     mbox_loc = Concatenate(axis=1, name='mbox_loc')([conv4_3_norm_mbox_loc_reshape,
@@ -417,8 +400,7 @@ def ssd_512(image_size,
                                                      conv6_2_mbox_loc_reshape,
                                                      conv7_2_mbox_loc_reshape,
                                                      conv8_2_mbox_loc_reshape,
-                                                     conv9_2_mbox_loc_reshape,
-                                                     conv10_2_mbox_loc_reshape])
+                                                     conv9_2_mbox_loc_reshape])
 
     # Output shape of `mbox_priorbox`: (batch, n_boxes_total, 8)
     mbox_priorbox = Concatenate(axis=1, name='mbox_priorbox')([conv4_3_norm_mbox_priorbox_reshape,
@@ -426,8 +408,7 @@ def ssd_512(image_size,
                                                                conv6_2_mbox_priorbox_reshape,
                                                                conv7_2_mbox_priorbox_reshape,
                                                                conv8_2_mbox_priorbox_reshape,
-                                                               conv9_2_mbox_priorbox_reshape,
-                                                               conv10_2_mbox_priorbox_reshape])
+                                                               conv9_2_mbox_priorbox_reshape])
 
     # The box coordinate predictions will go into the loss function just the way they are,
     # but for the class predictions, we'll apply a softmax activation layer first
@@ -466,12 +447,11 @@ def ssd_512(image_size,
 
     if return_predictor_sizes:
         predictor_sizes = np.array([conv4_3_norm_mbox_conf._keras_shape[1:3],
-                                    fc7_mbox_conf._keras_shape[1:3],
-                                    conv6_2_mbox_conf._keras_shape[1:3],
-                                    conv7_2_mbox_conf._keras_shape[1:3],
-                                    conv8_2_mbox_conf._keras_shape[1:3],
-                                    conv9_2_mbox_conf._keras_shape[1:3],
-                                    conv10_2_mbox_conf._keras_shape[1:3]])
+                                     fc7_mbox_conf._keras_shape[1:3],
+                                     conv6_2_mbox_conf._keras_shape[1:3],
+                                     conv7_2_mbox_conf._keras_shape[1:3],
+                                     conv8_2_mbox_conf._keras_shape[1:3],
+                                     conv9_2_mbox_conf._keras_shape[1:3]])
         return model, predictor_sizes
     else:
         return model

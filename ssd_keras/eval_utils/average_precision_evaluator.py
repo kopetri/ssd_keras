@@ -23,15 +23,44 @@ from math import ceil
 from tqdm import trange
 import sys
 import warnings
+import keras
 
-from data_generator.object_detection_2d_data_generator import DataGenerator
-from data_generator.object_detection_2d_geometric_ops import Resize
-from data_generator.object_detection_2d_patch_sampling_ops import RandomPadFixedAR
-from data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
-from ssd_encoder_decoder.ssd_output_decoder import decode_detections
-from data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
+from ..data_generator.object_detection_2d_data_generator import DataGenerator
+from ..data_generator.object_detection_2d_geometric_ops import Resize
+from ..data_generator.object_detection_2d_patch_sampling_ops import RandomPadFixedAR
+from ..data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
+from ..ssd_encoder_decoder.ssd_output_decoder import decode_detections
+from ..data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
 
-from bounding_box_utils.bounding_box_utils import iou
+from ..bounding_box_utils.bounding_box_utils import iou
+
+
+class Evaluate(keras.callbacks.Callback):
+    def __init__(self,
+                 model,
+                 n_classes,
+                 data_generator,
+                 img_height,
+                 img_width,
+                 batch_size,
+                 model_mode='inference',
+                 pred_format={'class_id': 0, 'conf': 1, 'xmin': 2, 'ymin': 3, 'xmax': 4, 'ymax': 5},
+                 gt_format={'class_id': 0, 'xmin': 1, 'ymin': 2, 'xmax': 3, 'ymax': 4}):
+        self.evaluator = Evaluator(model=model,
+                                   n_classes=n_classes,
+                                   data_generator=data_generator,
+                                   pred_format=pred_format,
+                                   model_mode=model_mode,
+                                   gt_format=gt_format)
+        self.img_height = img_height
+        self.img_width = img_width
+        self.batch_size = batch_size
+        super(Evaluate, self).__init__()
+
+    def on_epoch_end(self, epoch, logs=None):
+        mean_average_precision = self.evaluator.__call__(img_height=self.img_height, img_width=self.img_width, batch_size=self.batch_size)
+        print("mAP: "+str(mean_average_precision))
+
 
 class Evaluator:
     '''
@@ -86,8 +115,8 @@ class Evaluator:
         self.false_positives = None
         self.cumulative_true_positives = None
         self.cumulative_false_positives = None
-        self.cumulative_precisions = None # "Cumulative" means that the i-th element in each list represents the precision for the first i highest condidence predictions for that class.
-        self.cumulative_recalls = None # "Cumulative" means that the i-th element in each list represents the recall for the first i highest condidence predictions for that class.
+        self.cumulative_precisions = None  # "Cumulative" means that the i-th element in each list represents the precision for the first i highest condidence predictions for that class.
+        self.cumulative_recalls = None  # "Cumulative" means that the i-th element in each list represents the recall for the first i highest condidence predictions for that class.
         self.average_precisions = None
         self.mean_average_precision = None
 
@@ -306,28 +335,29 @@ class Evaluator:
         '''
 
         class_id_pred = self.pred_format['class_id']
-        conf_pred     = self.pred_format['conf']
-        xmin_pred     = self.pred_format['xmin']
-        ymin_pred     = self.pred_format['ymin']
-        xmax_pred     = self.pred_format['xmax']
-        ymax_pred     = self.pred_format['ymax']
+        conf_pred = self.pred_format['conf']
+        xmin_pred = self.pred_format['xmin']
+        ymin_pred = self.pred_format['ymin']
+        xmax_pred = self.pred_format['xmax']
+        ymax_pred = self.pred_format['ymax']
 
         #############################################################################################
         # Configure the data generator for the evaluation.
         #############################################################################################
 
         convert_to_3_channels = ConvertTo3Channels()
-        resize = Resize(height=img_height,width=img_width, labels_format=self.gt_format)
+        resize = Resize(height=img_height, width=img_width, labels_format=self.gt_format)
         if data_generator_mode == 'resize':
             transformations = [convert_to_3_channels,
                                resize]
         elif data_generator_mode == 'pad':
-            random_pad = RandomPadFixedAR(patch_aspect_ratio=img_width/img_height, labels_format=self.gt_format)
+            random_pad = RandomPadFixedAR(patch_aspect_ratio=img_width / img_height, labels_format=self.gt_format)
             transformations = [convert_to_3_channels,
                                random_pad,
                                resize]
         else:
-            raise ValueError("`data_generator_mode` can be either of 'resize' or 'pad', but received '{}'.".format(data_generator_mode))
+            raise ValueError("`data_generator_mode` can be either of 'resize' or 'pad', but received '{}'.".format(
+                data_generator_mode))
 
         # Set the generator parameters.
         generator = self.data_generator.generate(batch_size=batch_size,
@@ -393,7 +423,7 @@ class Evaluator:
                 # Filter out the all-zeros dummy elements of `y_pred`.
                 y_pred_filtered = []
                 for i in range(len(y_pred)):
-                    y_pred_filtered.append(y_pred[i][y_pred[i,:,0] != 0])
+                    y_pred_filtered.append(y_pred[i][y_pred[i, :, 0] != 0])
                 y_pred = y_pred_filtered
             # Convert the predicted box coordinates for the original images.
             y_pred = apply_inverse_transforms(y_pred, batch_inverse_transforms)
@@ -446,7 +476,8 @@ class Evaluator:
         '''
 
         if self.prediction_results is None:
-            raise ValueError("There are no prediction results. You must run `predict_on_dataset()` before calling this method.")
+            raise ValueError(
+                "There are no prediction results. You must run `predict_on_dataset()` before calling this method.")
 
         # We generate a separate results file for each class.
         for class_id in range(1, self.n_classes + 1):
@@ -462,7 +493,6 @@ class Evaluator:
             results_file = open('{}{}.txt'.format(out_file_prefix, class_suffix), 'w')
 
             for prediction in self.prediction_results[class_id]:
-
                 prediction_list = list(prediction)
                 prediction_list[0] = '{:06d}'.format(int(prediction_list[0]))
                 prediction_list[1] = round(prediction_list[1], 4)
@@ -495,9 +525,10 @@ class Evaluator:
         '''
 
         if self.data_generator.labels is None:
-            raise ValueError("Computing the number of ground truth boxes per class not possible, no ground truth given.")
+            raise ValueError(
+                "Computing the number of ground truth boxes per class not possible, no ground truth given.")
 
-        num_gt_per_class = np.zeros(shape=(self.n_classes+1), dtype=np.int)
+        num_gt_per_class = np.zeros(shape=(self.n_classes + 1), dtype=np.int)
 
         class_id_index = self.gt_format['class_id']
 
@@ -578,7 +609,8 @@ class Evaluator:
             raise ValueError("Matching predictions to ground truth boxes not possible, no ground truth given.")
 
         if self.prediction_results is None:
-            raise ValueError("There are no prediction results. You must run `predict_on_dataset()` before calling this method.")
+            raise ValueError(
+                "There are no prediction results. You must run `predict_on_dataset()` before calling this method.")
 
         class_id_gt = self.gt_format['class_id']
         xmin_gt = self.gt_format['xmin']
@@ -589,7 +621,8 @@ class Evaluator:
         # Convert the ground truth to a more efficient format for what we need
         # to do, which is access ground truth by image ID repeatedly.
         ground_truth = {}
-        eval_neutral_available = not (self.data_generator.eval_neutral is None) # Whether or not we have annotations to decide whether ground truth boxes should be neutral or not.
+        eval_neutral_available = not (
+                self.data_generator.eval_neutral is None)  # Whether or not we have annotations to decide whether ground truth boxes should be neutral or not.
         for i in range(len(self.data_generator.image_ids)):
             image_id = str(self.data_generator.image_ids[i])
             labels = self.data_generator.labels[i]
@@ -598,8 +631,8 @@ class Evaluator:
             else:
                 ground_truth[image_id] = np.asarray(labels)
 
-        true_positives = [[]] # The false positives for each class, sorted by descending confidence.
-        false_positives = [[]] # The true positives for each class, sorted by descending confidence.
+        true_positives = [[]]  # The false positives for each class, sorted by descending confidence.
+        false_positives = [[]]  # The true positives for each class, sorted by descending confidence.
         cumulative_true_positives = [[]]
         cumulative_false_positives = [[]]
 
@@ -609,8 +642,10 @@ class Evaluator:
             predictions = self.prediction_results[class_id]
 
             # Store the matching results in these lists:
-            true_pos = np.zeros(len(predictions), dtype=np.int) # 1 for every prediction that is a true positive, 0 otherwise
-            false_pos = np.zeros(len(predictions), dtype=np.int) # 1 for every prediction that is a false positive, 0 otherwise
+            true_pos = np.zeros(len(predictions),
+                                dtype=np.int)  # 1 for every prediction that is a true positive, 0 otherwise
+            false_pos = np.zeros(len(predictions),
+                                 dtype=np.int)  # 1 for every prediction that is a false positive, 0 otherwise
 
             # In case there are no predictions at all for this class, we're done here.
             if len(predictions) == 0:
@@ -622,7 +657,8 @@ class Evaluator:
             # Convert the predictions list for this class into a structured array so that we can sort it by confidence.
 
             # Get the number of characters needed to store the image ID strings in the structured array.
-            num_chars_per_image_id = len(str(predictions[0][0])) + 6 # Keep a few characters buffer in case some image IDs are longer than others.
+            num_chars_per_image_id = len(str(
+                predictions[0][0])) + 6  # Keep a few characters buffer in case some image IDs are longer than others.
             # Create the data type for the structured array.
             preds_data_type = np.dtype([('image_id', 'U{}'.format(num_chars_per_image_id)),
                                         ('confidence', 'f4'),
@@ -639,7 +675,8 @@ class Evaluator:
 
             if verbose:
                 tr = trange(len(predictions), file=sys.stdout)
-                tr.set_description("Matching predictions to ground truth, class {}/{}.".format(class_id, self.n_classes))
+                tr.set_description(
+                    "Matching predictions to ground truth, class {}/{}.".format(class_id, self.n_classes))
             else:
                 tr = range(len(predictions.shape))
 
@@ -651,7 +688,8 @@ class Evaluator:
 
                 prediction = predictions_sorted[i]
                 image_id = prediction['image_id']
-                pred_box = np.asarray(list(prediction[['xmin', 'ymin', 'xmax', 'ymax']])) # Convert the structured array element to a regular array.
+                pred_box = np.asarray(list(prediction[['xmin', 'ymin', 'xmax',
+                                                       'ymax']]))  # Convert the structured array element to a regular array.
 
                 # Get the relevant ground truth boxes for this prediction,
                 # i.e. all ground truth boxes that match the prediction's
@@ -664,7 +702,7 @@ class Evaluator:
                 else:
                     gt = ground_truth[image_id]
                 gt = np.asarray(gt)
-                class_mask = gt[:,class_id_gt] == class_id
+                class_mask = gt[:, class_id_gt] == class_id
                 gt = gt[class_mask]
                 if ignore_neutral_boxes and eval_neutral_available:
                     eval_neutral = eval_neutral[class_mask]
@@ -676,7 +714,7 @@ class Evaluator:
                     continue
 
                 # Compute the IoU of this prediction with all ground truth boxes of the same class.
-                overlaps = iou(boxes1=gt[:,[xmin_gt, ymin_gt, xmax_gt, ymax_gt]],
+                overlaps = iou(boxes1=gt[:, [xmin_gt, ymin_gt, xmax_gt, ymax_gt]],
                                boxes2=pred_box,
                                coords='corners',
                                mode='element-wise',
@@ -721,8 +759,8 @@ class Evaluator:
             true_positives.append(true_pos)
             false_positives.append(false_pos)
 
-            cumulative_true_pos = np.cumsum(true_pos) # Cumulative sums of the true positives
-            cumulative_false_pos = np.cumsum(false_pos) # Cumulative sums of the false positives
+            cumulative_true_pos = np.cumsum(true_pos)  # Cumulative sums of the true positives
+            cumulative_false_pos = np.cumsum(false_pos)  # Cumulative sums of the false positives
 
             cumulative_true_positives.append(cumulative_true_pos)
             cumulative_false_positives.append(cumulative_false_pos)
@@ -750,10 +788,12 @@ class Evaluator:
         '''
 
         if (self.cumulative_true_positives is None) or (self.cumulative_false_positives is None):
-            raise ValueError("True and false positives not available. You must run `match_predictions()` before you call this method.")
+            raise ValueError(
+                "True and false positives not available. You must run `match_predictions()` before you call this method.")
 
         if (self.num_gt_per_class is None):
-            raise ValueError("Number of ground truth boxes per class not available. You must run `get_num_gt_per_class()` before you call this method.")
+            raise ValueError(
+                "Number of ground truth boxes per class not available. You must run `get_num_gt_per_class()` before you call this method.")
 
         cumulative_precisions = [[]]
         cumulative_recalls = [[]]
@@ -767,9 +807,8 @@ class Evaluator:
             tp = self.cumulative_true_positives[class_id]
             fp = self.cumulative_false_positives[class_id]
 
-
-            cumulative_precision = np.where(tp + fp > 0, tp / (tp + fp), 0) # 1D array with shape `(num_predictions,)`
-            cumulative_recall = tp / self.num_gt_per_class[class_id] # 1D array with shape `(num_predictions,)`
+            cumulative_precision = np.where(tp + fp > 0, tp / (tp + fp), 0)  # 1D array with shape `(num_predictions,)`
+            cumulative_recall = tp / self.num_gt_per_class[class_id]  # 1D array with shape `(num_predictions,)`
 
             cumulative_precisions.append(cumulative_precision)
             cumulative_recalls.append(cumulative_recall)
@@ -810,7 +849,8 @@ class Evaluator:
         '''
 
         if (self.cumulative_precisions is None) or (self.cumulative_recalls is None):
-            raise ValueError("Precisions and recalls not available. You must run `compute_precision_recall()` before you call this method.")
+            raise ValueError(
+                "Precisions and recalls not available. You must run `compute_precision_recall()` before you call this method.")
 
         if not (mode in {'sample', 'integrate'}):
             raise ValueError("`mode` can be either 'sample' or 'integrate', but received '{}'".format(mode))
@@ -845,7 +885,9 @@ class Evaluator:
             elif mode == 'integrate':
 
                 # We will compute the precision at all unique recall values.
-                unique_recalls, unique_recall_indices, unique_recall_counts = np.unique(cumulative_recall, return_index=True, return_counts=True)
+                unique_recalls, unique_recall_indices, unique_recall_counts = np.unique(cumulative_recall,
+                                                                                        return_index=True,
+                                                                                        return_counts=True)
 
                 # Store the maximal precision for each recall value and the absolute difference
                 # between any two unique recal values in the lists below. The products of these
@@ -863,14 +905,15 @@ class Evaluator:
                 # maximum instead of computing the maximum over all `l` values.
                 # We skip the very last recall value, since the precision after between the last recall value
                 # recall 1.0 is defined to be zero.
-                for i in range(len(unique_recalls)-2, -1, -1):
+                for i in range(len(unique_recalls) - 2, -1, -1):
                     begin = unique_recall_indices[i]
-                    end   = unique_recall_indices[i + 1]
+                    end = unique_recall_indices[i + 1]
                     # When computing the maximal precisions, use the maximum of the previous iteration to
                     # avoid unnecessary repeated computation over the same precision values.
                     # The maximal precisions are the heights of the rectangle areas of our integral under
                     # the precision-recall curve.
-                    maximal_precisions[i] = np.maximum(np.amax(cumulative_precision[begin:end]), maximal_precisions[i + 1])
+                    maximal_precisions[i] = np.maximum(np.amax(cumulative_precision[begin:end]),
+                                                       maximal_precisions[i + 1])
                     # The differences between two adjacent recall values are the widths of our rectangle areas.
                     recall_deltas[i] = unique_recalls[i + 1] - unique_recalls[i]
 
@@ -897,9 +940,11 @@ class Evaluator:
         '''
 
         if self.average_precisions is None:
-            raise ValueError("Average precisions not available. You must run `compute_average_precisions()` before you call this method.")
+            raise ValueError(
+                "Average precisions not available. You must run `compute_average_precisions()` before you call this method.")
 
-        mean_average_precision = np.average(self.average_precisions[1:]) # The first element is for the background class, so skip it.
+        mean_average_precision = np.average(
+            self.average_precisions[1:])  # The first element is for the background class, so skip it.
         self.mean_average_precision = mean_average_precision
 
         if ret:
