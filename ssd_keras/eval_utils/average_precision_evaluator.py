@@ -43,6 +43,7 @@ class Evaluate(keras.callbacks.Callback):
                  img_height,
                  img_width,
                  batch_size,
+                 tensorboard=None,
                  model_mode='inference',
                  pred_format={'class_id': 0, 'conf': 1, 'xmin': 2, 'ymin': 3, 'xmax': 4, 'ymax': 5},
                  gt_format={'class_id': 0, 'xmin': 1, 'ymin': 2, 'xmax': 3, 'ymax': 4}):
@@ -55,11 +56,21 @@ class Evaluate(keras.callbacks.Callback):
         self.img_height = img_height
         self.img_width = img_width
         self.batch_size = batch_size
+        self.tensorboard = tensorboard
         super(Evaluate, self).__init__()
 
     def on_epoch_end(self, epoch, logs=None):
-        mean_average_precision = self.evaluator.__call__(img_height=self.img_height, img_width=self.img_width, batch_size=self.batch_size)
-        print("mAP: "+str(mean_average_precision))
+        [mean_average_precision, average_precisions] = self.evaluator.__call__(img_height=self.img_height, img_width=self.img_width, batch_size=self.batch_size,return_average_precisions=True)
+        if self.tensorboard is not None and self.tensorboard.writer is not None:
+            import tensorflow as tf
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.simple_value = mean_average_precision
+            summary_value.tag = "mAP"
+            self.tensorboard.writer.add_summary(summary, epoch)
+        for label, average_precision in enumerate(average_precisions):
+            print(str(label), '{:.4f}'.format(average_precision))
+        print('mAP: {:.4f}'.format(mean_average_precision))
 
 
 class Evaluator:
@@ -803,12 +814,14 @@ class Evaluator:
 
             if verbose:
                 print("Computing precisions and recalls, class {}/{}".format(class_id, self.n_classes))
-
-            tp = self.cumulative_true_positives[class_id]
-            fp = self.cumulative_false_positives[class_id]
-
-            cumulative_precision = np.where(tp + fp > 0, tp / (tp + fp), 0)  # 1D array with shape `(num_predictions,)`
-            cumulative_recall = tp / self.num_gt_per_class[class_id]  # 1D array with shape `(num_predictions,)`
+            if len(self.cumulative_true_positives) <= class_id or len(self.cumulative_false_positives) <= class_id:
+                cumulative_precision = []
+                cumulative_recall = []
+            else:
+                tp = self.cumulative_true_positives[class_id]
+                fp = self.cumulative_false_positives[class_id]
+                cumulative_precision = np.where(tp + fp > 0, tp / (tp + fp), 0)  # 1D array with shape `(num_predictions,)`
+                cumulative_recall = tp / self.num_gt_per_class[class_id]  # 1D array with shape `(num_predictions,)`
 
             cumulative_precisions.append(cumulative_precision)
             cumulative_recalls.append(cumulative_recall)
@@ -862,7 +875,9 @@ class Evaluator:
 
             if verbose:
                 print("Computing average precision, class {}/{}".format(class_id, self.n_classes))
-
+            if len(self.cumulative_precisions[class_id]) <= 0:
+                average_precisions.append(0.0)
+                continue
             cumulative_precision = self.cumulative_precisions[class_id]
             cumulative_recall = self.cumulative_recalls[class_id]
             average_precision = 0.0

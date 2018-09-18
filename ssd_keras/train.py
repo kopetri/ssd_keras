@@ -1,5 +1,9 @@
 import os
 import sys
+# Allow relative imports when being executed as script.
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    __package__ = "ssd_keras"
 import argparse
 from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TerminateOnNaN, CSVLogger, TensorBoard
@@ -9,21 +13,21 @@ from math import ceil
 import numpy as np
 from matplotlib import pyplot as plt
 
-from models.keras_ssd300 import ssd_300
-from keras_loss_function.keras_ssd_loss import SSDLoss
-from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from keras_layers.keras_layer_DecodeDetections import DecodeDetections
-from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
-from keras_layers.keras_layer_L2Normalization import L2Normalization
+from .models.keras_ssd300 import ssd_300
+from .keras_loss_function.keras_ssd_loss import SSDLoss
+from .keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
+from .keras_layers.keras_layer_DecodeDetections import DecodeDetections
+from .keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
+from .keras_layers.keras_layer_L2Normalization import L2Normalization
 
-from ssd_encoder_decoder.ssd_input_encoder import SSDInputEncoder
-from ssd_encoder_decoder.ssd_output_decoder import decode_detections, decode_detections_fast
+from .ssd_encoder_decoder.ssd_input_encoder import SSDInputEncoder
+from .ssd_encoder_decoder.ssd_output_decoder import decode_detections, decode_detections_fast
 
-from data_generator.object_detection_2d_data_generator import DataGenerator
-from data_generator.object_detection_2d_geometric_ops import Resize
-from data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
-from data_generator.data_augmentation_chain_original_ssd import SSDDataAugmentation
-from data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
+from .data_generator.object_detection_2d_data_generator import DataGenerator
+from .data_generator.object_detection_2d_geometric_ops import Resize
+from .data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
+from .data_generator.data_augmentation_chain_original_ssd import SSDDataAugmentation
+from .data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
 
 
 # Define a learning rate schedule.

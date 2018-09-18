@@ -1,28 +1,34 @@
+import os
+import sys
+# Allow relative imports when being executed as script.
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    __package__ = "ssd_keras"
 import h5py
 import numpy as np
 import shutil
 import cv2
 
-from misc_utils.tensor_sampling_utils import sample_tensors
+from .misc_utils.tensor_sampling_utils import sample_tensors
 from keras.optimizers import Adam
 from keras import backend as K
 from keras.models import load_model
 
-from models.keras_ssd300 import ssd_300
-from keras_loss_function.keras_ssd_loss import SSDLoss
-from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from keras_layers.keras_layer_DecodeDetections import DecodeDetections
-from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
-from keras_layers.keras_layer_L2Normalization import L2Normalization
+from .models.keras_ssd300 import ssd_300
+from .keras_loss_function.keras_ssd_loss import SSDLoss
+from .keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
+from .keras_layers.keras_layer_DecodeDetections import DecodeDetections
+from .keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
+from .keras_layers.keras_layer_L2Normalization import L2Normalization
 
-from data_generator.object_detection_2d_data_generator import DataGenerator
-from data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
-from data_generator.object_detection_2d_patch_sampling_ops import RandomMaxCropFixedAR
-from data_generator.object_detection_2d_geometric_ops import Resize
+from .data_generator.object_detection_2d_data_generator import DataGenerator
+from .data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
+from .data_generator.object_detection_2d_patch_sampling_ops import RandomMaxCropFixedAR
+from .data_generator.object_detection_2d_geometric_ops import Resize
 
 if __name__ == '__main__':
-    weights_source_path = './VGG_coco_SSD_300x300_iter_400000.h5'
-    weights_destination_path = './VGG_COCO_SSD_300x300_iter_400000_subsampled_6_classes.h5'
+    weights_source_path = '../VGG_ILSVRC2016_SSD_300x300_iter_440000.h5'
+    weights_destination_path = '../VGG_ILSVRC2016_SSD_300x300_iter_440000_subsampled_6_classes.h5'
     # Make a copy of the weights file.
     shutil.copy(weights_source_path, weights_destination_path)
 
@@ -45,8 +51,8 @@ if __name__ == '__main__':
     print("bias:\t", conv4_3_norm_mbox_conf_bias.shape)
 
     # TODO: Set the number of classes in the source weights file. Note that this number must include
-    #       the background class, so for MS COCO's 80 classes, this must be 80 + 1 = 81.
-    n_classes_source = 81
+    #       the background class, so for MS COCO's 80 classes, this must be 80 + 1 = 81. ImageNet2016 200 + 1s
+    n_classes_source = 201
     # TODO: Set the indices of the classes that you want to pick for the sub-sampled weight tensors.
     #       In case you would like to just randomly sample a certain number of classes, you can just set
     #       `classes_of_interest` to an integer instead of the list below. Either way, don't forget to
