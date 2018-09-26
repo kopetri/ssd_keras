@@ -44,7 +44,7 @@ class Evaluate(keras.callbacks.Callback):
                  img_width,
                  batch_size,
                  tensorboard=None,
-                 model_mode='inference',
+                 model_mode='training',
                  pred_format={'class_id': 0, 'conf': 1, 'xmin': 2, 'ymin': 3, 'xmax': 4, 'ymax': 5},
                  gt_format={'class_id': 0, 'xmin': 1, 'ymin': 2, 'xmax': 3, 'ymax': 4}):
         self.evaluator = Evaluator(model=model,

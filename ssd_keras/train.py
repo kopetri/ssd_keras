@@ -1,5 +1,6 @@
 import os
 import sys
+
 # Allow relative imports when being executed as script.
 if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -21,6 +22,7 @@ from .keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
 from .keras_layers.keras_layer_L2Normalization import L2Normalization
 
 from .ssd_encoder_decoder.ssd_input_encoder import SSDInputEncoder
+from .eval_utils.average_precision_evaluator import Evaluate
 from .ssd_encoder_decoder.ssd_output_decoder import decode_detections, decode_detections_fast
 
 from .data_generator.object_detection_2d_data_generator import DataGenerator
@@ -54,15 +56,14 @@ def check_args(parsed_args):
 
 
 def main():
-
     parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
     parser.add_argument('--img_width', default=300, type=int)
     parser.add_argument('--img_height', default=300, type=int)
-    parser.add_argument('--batch_size', default=4, type=int)
-    parser.add_argument('--weights_path', type=str, default="D:/Documents/ssd_keras/VGG_COCO_SSD_300x300_iter_400000_subsampled_6_classes.h5")
-    parser.add_argument('--train_data', type=str, default="D:/Documents/3dsMax/renderoutput/data.all.h5")
-    parser.add_argument('--val_data', type=str, default="D:/Documents/Villeroy & Boch - Subway 2.0/data.h5")
-    parser.add_argument('--output_dir', type=str, default="D:/Downloads")
+    parser.add_argument('--batch_size', default=16, type=int)
+    parser.add_argument('--weights_path', type=str)
+    parser.add_argument('--train_data', type=str)
+    parser.add_argument('--val_data', type=str)
+    parser.add_argument('--output_dir', type=str)
 
     args = sys.argv[1:]
     parsed_args = parser.parse_args(args)
@@ -132,11 +133,11 @@ def main():
     model.compile(optimizer=adam, loss=ssd_loss.compute_loss)
 
     train_dataset = DataGenerator(load_images_into_memory=False,
-                                  hdf5_dataset_path="D:/Documents/Villeroy & Boch - Subway 2.0/data.h5")
-    """
+                                  hdf5_dataset_path=parsed_args.train_data)
+
     val_dataset = DataGenerator(load_images_into_memory=False,
                                 hdf5_dataset_path=parsed_args.val_data)
-    
+    """
     train_dataset.parse_csv(images_dir="D:/Documents/3dsMax/renderoutput/3dsmax3",
                             labels_filename="D:/Documents/3dsMax/renderoutput/3dsmax3/annotations.ssd.csv",
                             input_format=["image_name", "xmin", "ymin", "xmax", "ymax", "class_id"], include_classes="all")
@@ -194,11 +195,7 @@ def main():
                                              returns={'processed_images',
                                                       'encoded_labels'},
                                              keep_images_without_gt=False)
-    images, annotations = train_generator.__next__()
-    print(np.array(images).shape)
-    print(np.array(annotations).shape)
 
-    """
     val_generator = val_dataset.generate(batch_size=batch_size,
                                          shuffle=False,
                                          transformations=[convert_to_3_channels,
@@ -216,6 +213,8 @@ def main():
     print("Number of images in the validation dataset:\t{:>6}".format(val_dataset_size))
 
     outputdir = parsed_args.output_dir
+    if not os.path.exists(outputdir):
+        os.mkdir(outputdir)
 
     # Define model callbacks.
 
@@ -230,11 +229,6 @@ def main():
                                        save_weights_only=False,
                                        mode='auto',
                                        period=1)
-    # model_checkpoint.best =
-
-    csv_logger = CSVLogger(filename=os.path.join(outputdir, "logs", 'ssd300_coco_training_log.csv'),
-                           separator=',',
-                           append=True)
 
     learning_rate_scheduler = LearningRateScheduler(schedule=lr_schedule,
                                                     verbose=1)
@@ -252,16 +246,24 @@ def main():
 
     terminate_on_nan = TerminateOnNaN()
 
+    evaluate = Evaluate(model=model,
+                        n_classes=n_classes,
+                        data_generator=val_dataset,
+                        img_width=img_width,
+                        img_height=img_height,
+                        batch_size=batch_size)
+
     callbacks = [model_checkpoint,
-                 csv_logger,
                  learning_rate_scheduler,
                  tensorboard_callback,
-                 terminate_on_nan]
+                 terminate_on_nan,
+                 evaluate
+                 ]
 
     # If you're resuming a previous training, set `initial_epoch` and `final_epoch` accordingly.
     initial_epoch = 0
-    final_epoch = 500
-    steps_per_epoch = 10000
+    final_epoch = 10
+    steps_per_epoch = 10#parsed_args.batch_size // train_dataset_size
 
     history = model.fit_generator(generator=train_generator,
                                   steps_per_epoch=steps_per_epoch,
@@ -270,7 +272,7 @@ def main():
                                   validation_data=val_generator,
                                   validation_steps=ceil(val_dataset_size / batch_size),
                                   initial_epoch=initial_epoch)
-    """
+
 
 if __name__ == '__main__':
     main()
