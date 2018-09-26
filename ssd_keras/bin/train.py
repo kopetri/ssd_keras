@@ -1,10 +1,5 @@
 import os
 import sys
-
-# Allow relative imports when being executed as script.
-if __name__ == "__main__" and __package__ is None:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-    __package__ = "ssd_keras.bin"
 import argparse
 from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TerminateOnNaN, CSVLogger, TensorBoard
@@ -13,6 +8,11 @@ from keras.models import load_model
 from math import ceil
 import numpy as np
 from matplotlib import pyplot as plt
+
+# Allow relative imports when being executed as script.
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+    __package__ = "ssd_keras.bin"
 
 from ..models.keras_ssd300 import ssd_300
 from ..keras_loss_function.keras_ssd_loss import SSDLoss
