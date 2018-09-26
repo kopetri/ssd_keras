@@ -10,5 +10,5 @@ setuptools.setup(
     maintainer='Sebastian Hartwig',
     maintainer_email='sebastian.hartwig@uni-ulm.de',
     packages=setuptools.find_packages(),
-    install_requires=['numpy', 'Pillow', 'six', 'keras', 'scikit-learn']
+    install_requires=['numpy', 'Pillow', 'six', 'keras', 'scikit-learn', 'h5py', 'matplotlib', 'tqdm', 'opencv-python']
 )
