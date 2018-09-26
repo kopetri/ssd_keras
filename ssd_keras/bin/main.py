@@ -9,22 +9,22 @@ import numpy as np
 import shutil
 import cv2
 
-from .misc_utils.tensor_sampling_utils import sample_tensors
+from ssd_keras.misc_utils.tensor_sampling_utils import sample_tensors
 from keras.optimizers import Adam
 from keras import backend as K
 from keras.models import load_model
 
-from .models.keras_ssd300 import ssd_300
-from .keras_loss_function.keras_ssd_loss import SSDLoss
-from .keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from .keras_layers.keras_layer_DecodeDetections import DecodeDetections
-from .keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
-from .keras_layers.keras_layer_L2Normalization import L2Normalization
+from ssd_keras.models.keras_ssd300 import ssd_300
+from ssd_keras.keras_loss_function.keras_ssd_loss import SSDLoss
+from ssd_keras.keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
+from ssd_keras.keras_layers.keras_layer_DecodeDetections import DecodeDetections
+from ssd_keras.keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
+from ssd_keras.keras_layers.keras_layer_L2Normalization import L2Normalization
 
-from .data_generator.object_detection_2d_data_generator import DataGenerator
-from .data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
-from .data_generator.object_detection_2d_patch_sampling_ops import RandomMaxCropFixedAR
-from .data_generator.object_detection_2d_geometric_ops import Resize
+from ssd_keras.data_generator.object_detection_2d_data_generator import DataGenerator
+from ssd_keras.data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
+from ssd_keras.data_generator.object_detection_2d_patch_sampling_ops import RandomMaxCropFixedAR
+from ssd_keras.data_generator.object_detection_2d_geometric_ops import Resize
 
 if __name__ == '__main__':
     weights_source_path = '../VGG_ILSVRC2016_SSD_300x300_iter_440000.h5'

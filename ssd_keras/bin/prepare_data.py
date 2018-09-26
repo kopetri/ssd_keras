@@ -5,7 +5,7 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
     __package__ = "ssd_keras"
 
-from .data_generator.object_detection_2d_data_generator import DataGenerator
+from ssd_keras.data_generator.object_detection_2d_data_generator import DataGenerator
 
 dataset = DataGenerator(load_images_into_memory=False, hdf5_dataset_path=None)
 dataset.parse_csv(images_dir="D:/Documents/3dsMax/renderoutput/domain_randomization/test",
