@@ -1,15 +1,25 @@
 import numpy as np
-from ssd_encoder_decoder.ssd_output_decoder import decode_detections
+import os
+import sys
+# Allow relative imports when being executed as script.
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+    __package__ = "ssd_keras.bin"
+else:
+    print("__name__ = {}".format(__name__))
+    print("__package__ = {}".format(__package__))
+
+from ..ssd_encoder_decoder.ssd_output_decoder import decode_detections
 from keras import backend as K
-from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from keras_layers.keras_layer_L2Normalization import L2Normalization
+from ..keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
+from ..keras_layers.keras_layer_L2Normalization import L2Normalization
 from keras.models import load_model
 from keras.optimizers import Adam
-from keras_loss_function.keras_ssd_loss import SSDLoss
-from data_generator.object_detection_2d_data_generator import DataGenerator
-from data_generator.object_detection_2d_geometric_ops import Resize
-from data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
-from data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
+from ..keras_loss_function.keras_ssd_loss import SSDLoss
+from ..data_generator.object_detection_2d_data_generator import DataGenerator
+from ..data_generator.object_detection_2d_geometric_ops import Resize
+from ..data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
+from ..data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
 
 val_dataset = DataGenerator(load_images_into_memory=False,
                             hdf5_dataset_path=None)
@@ -17,7 +27,7 @@ val_dataset.parse_csv(images_dir="D:/Documents/Villeroy & Boch - Subway 2.0", la
 
 
 # TODO: Set the path to the `.h5` file of the model to be loaded.
-model_path = 'D:/Documents/3dsMax/renderoutput/3dsmax3/snapshots/ssd300_3dsmax3_epoch-04_loss-5.5616_val_loss-5.6297.h5'
+model_path = 'G:/Documents/3dsMax/renderoutput/ssd_h5_200.h5'
 
 # We need to create an SSDLoss object in order to pass that to the model loader.
 adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
