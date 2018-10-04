@@ -21,13 +21,11 @@ from ..data_generator.object_detection_2d_geometric_ops import Resize
 from ..data_generator.object_detection_2d_photometric_ops import ConvertTo3Channels
 from ..data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
 
-val_dataset = DataGenerator(load_images_into_memory=False,
-                            hdf5_dataset_path=None)
-val_dataset.parse_csv(images_dir="D:/Documents/Villeroy & Boch - Subway 2.0", labels_filename="D:/Documents/Villeroy & Boch - Subway 2.0/annotations.ssd.csv", input_format=["image_name", "xmin", "ymin", "xmax", "ymax", "class_id"])
+val_dataset = DataGenerator(load_images_into_memory=False, hdf5_dataset_path="/mnt/hdd/sebastian/3dsmax3/data.villeroy.boch.h5")
 
 
 # TODO: Set the path to the `.h5` file of the model to be loaded.
-model_path = 'G:/Documents/3dsMax/renderoutput/ssd_h5_200.h5'
+model_path = "/mnt/hdd/sebastian/arnold/ssd-domain-randomization/snapshots/ssd_h5_200.h5"
 
 # We need to create an SSDLoss object in order to pass that to the model loader.
 adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
