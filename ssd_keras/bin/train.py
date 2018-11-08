@@ -214,7 +214,7 @@ def main():
     if not os.path.exists(os.path.join(outputdir, "snapshots")):
         os.mkdir(os.path.join(outputdir, "snapshots"))
     model_checkpoint = ModelCheckpoint(filepath=os.path.join(outputdir, "snapshots",
-                                                             'ssd300_3dsmax3_epoch-{epoch:02d}_loss-{loss:.4f}.h5'),
+                                                             'ssd300_epoch-{epoch:02d}_loss-{loss:.4f}.h5'),
                                        monitor='loss',
                                        verbose=1,
                                        save_best_only=True,
@@ -248,21 +248,21 @@ def main():
     callbacks = [model_checkpoint,
                  learning_rate_scheduler,
                  tensorboard_callback,
-                 terminate_on_nan,
-                 evaluate
+                 terminate_on_nan
+
                  ]
 
     # If you're resuming a previous training, set `initial_epoch` and `final_epoch` accordingly.
     initial_epoch = 0
-    final_epoch = 10
-    steps_per_epoch = 10#parsed_args.batch_size // train_dataset_size
+    final_epoch = 500
+    steps_per_epoch = train_dataset_size // parsed_args.batch_size
 
     history = model.fit_generator(generator=train_generator,
                                   steps_per_epoch=steps_per_epoch,
                                   epochs=final_epoch,
                                   callbacks=callbacks,
                                   validation_data=val_generator,
-                                  validation_steps=ceil(val_dataset_size / batch_size),
+                                  validation_steps=ceil(val_dataset_size // batch_size),
                                   initial_epoch=initial_epoch)
 
 
